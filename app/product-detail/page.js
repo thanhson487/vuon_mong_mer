@@ -1,94 +1,117 @@
 "use client";
-import React, { useState } from "react";
-import { Card, Collapse } from "antd";
+import React, { useEffect, useState, Suspense } from "react";
+import { Card, Collapse, notification, Skeleton } from "antd";
 import { InputNumber, Button, Badge } from "antd";
-import { LeftOutlined, MinusOutlined, PlusOutlined, RightOutlined } from "@ant-design/icons";
-import ReactImageMagnify from "react-image-magnify";
+import {
+  LeftOutlined,
+  MinusOutlined,
+  PlusOutlined,
+  RightOutlined,
+} from "@ant-design/icons";
 import Image from "next/image";
 import MenuComponent from "../component/Menu";
 import DescriptionProduct from "../component/DescriptionProduct";
 import Footer from "../component/Footer";
 import { Slide } from "react-slideshow-image";
-const { Meta } = Card;
+import { useRouter, useSearchParams } from "next/navigation";
+import { LIST_PRODUCT } from "../Constant";
+import { find } from "lodash";
+import NotFoundPage from "../component/Common/NotFoundPage";
+import { formatCurrency } from "@/helper";
+import { useAtom } from "jotai";
+import { shoppingCartAtom } from "../jotal";
 
-const Page = () => {
-  const thumbnails = [
-    "https://picsum.photos/700/700",
-    "https://picsum.photos/700/700",
-    "https://picsum.photos/700/700",
-    "https://picsum.photos/700/700",
-    "https://picsum.photos/700/700",
-  ];
-  const [mainImage, setMainImage] = useState(thumbnails[0]);
+const ProductDetail = () => {
   const [inputValue, setInputValue] = useState(1);
+  const [detailProduct, setDetailProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const searchParams = useSearchParams();
+  const [productCart, setProdctCart] = useAtom(shoppingCartAtom);
+  const [mainImage, setMainImage] = useState();
+  const id = searchParams.get("id");
+  const [api, contextHolder] = notification.useNotification();
+  useEffect(() => {
+    if (!detailProduct) return;
+    setMainImage(detailProduct.image[0]);
+  }, [detailProduct]);
 
+  useEffect(() => {
+    setLoading(true);
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+    const product = find(LIST_PRODUCT, (item) => item.id === Number(id));
+    setDetailProduct(product);
+    setLoading(false);
+  }, [id]);
+
+  const handleAddProductToCard = () => {
+    const item = find(productCart, (item) => item.id === detailProduct.id);
+    if (item) {
+      const newProduct = {
+        ...item,
+        quantity: item.quantity + inputValue,
+      };
+      setProdctCart(
+        productCart.map((item) =>
+          item.id === detailProduct.id ? newProduct : item
+        )
+      );
+    } else {
+      setProdctCart([
+        ...productCart,
+        { ...detailProduct, quantity: inputValue },
+      ]);
+    }
+    setInputValue(1);
+    api.success({
+      message: "Thêm giỏ hàng thành công",
+      placement: "top",
+      duration: 3,
+    });
+  };
+  if (loading) return <Skeleton />;
+  if (!detailProduct) return <NotFoundPage />;
   return (
     <div>
-      <MenuComponent />
-
-      <div className="flex flex-col lg:flex-row gap-4 p-4  w-[80%] m-auto">
+   
+      <MenuComponent />   {contextHolder}
+      <div className="h-20"></div>
+      <div className="flex flex-col md:flex-row gap-4 p-4  md:w-[80%] m-auto">
         {/* Left Section: Image Gallery */}
-        <div className="flex items-center flex-col lg:w-1/2">
+        <div className="flex items-center flex-col md:w-1/2">
           <div className=" mb-4">
-            <img src={mainImage} className=" w-[600px] h-auto " />
+            <img src={mainImage} className="w-min-[600px] w-[600px] h-auto " />
           </div>
-          <div className=" w-full ">
-
-              <Slide slidesToScroll={4} slidesToShow={4} indicators={true}       prevArrow={
-          <button className="absolute left-0 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white p-2 rounded-full">
-            <LeftOutlined />
-          </button>
-        }
-        nextArrow={
-          <button className="absolute right-0 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white p-2 rounded-full">
-            <RightOutlined />
-          </button>
-        }>
-        {thumbnails.map((thumbnail, index) => (
-          <img
-            key={index}
-            src={thumbnail}
-            alt={`Thumbnail ${index + 1}`}
-            className="rounded-md cursor-pointer border hover:border-blue-500 mr-2 h-auto mb-2"
-            onClick={() => setMainImage(thumbnail)}
-          />
-        ))}
-      </Slide>
+          <div className=" w-full flex">
+            {detailProduct?.image.map((thumbnail, index) => (
+              <img
+                key={index}
+                src={thumbnail}
+                alt={`Thumbnail ${index + 1}`}
+                className="rounded-md cursor-pointer border hover:border-blue-500 mr-2 h-auto mb-2 w-max-[150px] w-[150px]"
+                onClick={() => setMainImage(thumbnail)}
+              />
+            ))}
           </div>
         </div>
 
         {/* Right Section: Product Details */}
-        <div className="lg:w-1/2">
+        <div className="md:w-1/2">
           <Card bordered={false}>
             <div className="text-[#00a76f] text-3xl font-bold mb-3">
-              SOIL MIX (~6kg) - Đất trồng sen đá 85% đã khoáng
+              {detailProduct.title}
             </div>
             <div className="flex items-end">
-              <div className="text-[#00a76f] text-2xl mr-2">200,000,000đ</div>
+              <div className="text-[#00a76f] text-2xl mr-2">
+                {formatCurrency(detailProduct.salePrice)}
+              </div>
               <div className="line-through text-[16px] text-[#ff1b1b]">
-                400,000,000
+                {formatCurrency(detailProduct.price)}
               </div>
             </div>
-            <p className="mb-4">
-              Được mix từ các loại nguyên liệu tốt nhất cho các loại cây mọng
-              nước: Đá Perlite, Pumice, Vermi, Peat moss, Phân trùn quế... Giá
-              thể Succulent Potting Mix có độ khả năng thoát nước tốt, cung cấp
-              các vi chất cần thiết cho xương rồng & sen đá phát triển tốt nhất.
-            </p>
-            <ul className="list-disc list-inside space-y-2 mb-4">
-              <li>
-                Thành phần: Perlite, Pumice, Vermiculite, Lava rock, Vỏ thông
-                Pinas Bark, Peatmoss & Phân Trùn quế.
-              </li>
-              <li>
-                Thể tích: Bao 12 lít (đúng 12 lít, không phải giống như soil mix
-                của đơn vị khác, bao 12 lít nhưng bao bì ghi là 15 lít).
-              </li>
-              <li>Khối lượng: 5-6 kg tùy độ ẩm của giá thể.</li>
-              <li>Có thể sử dụng cho các loại kiểng lá.</li>
-              <li>Sản xuất tại: Việt Nam.</li>
-            </ul>
-
+            {detailProduct.story}
             <div className="flex items-center mt-4 space-x-4">
               <div className="flex items-center border rounded-lg px-2 py-1">
                 <Button
@@ -114,13 +137,15 @@ const Page = () => {
                   }}
                 />
               </div>
-              <Button type="primary">Thêm vào giỏ hàng</Button>
+              <Button type="primary" onClick={handleAddProductToCard}>
+                Thêm vào giỏ hàng
+              </Button>
             </div>
 
             <p className="text-sm text-gray-500 mt-2">
               Gọi đặt mua:{" "}
               <a href="tel:0962841055" className="text-blue-500">
-                0833449449
+                0962841055
               </a>{" "}
               để nhanh chóng đặt hàng.
             </p>
@@ -142,10 +167,17 @@ const Page = () => {
           </Card>
         </div>
       </div>
-      <DescriptionProduct />
+      <DescriptionProduct description={detailProduct.description} />
       <Footer />
-    
     </div>
+  );
+};
+
+const Page = () => {
+  return (
+    <Suspense fallback={<Skeleton />}>
+      <ProductDetail />
+    </Suspense>
   );
 };
 
